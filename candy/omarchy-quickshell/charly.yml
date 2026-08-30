@@ -1,0 +1,114 @@
+omarchy-quickshell:
+    candy:
+        version: 2026.242.0000
+        description: |
+            Runs Omarchy's Quickshell desktop shell — its bar, notifier, launcher, OSD and lockscreen, as one supervised service.
+            In Omarchy 4.x the entire desktop shell is a single Quickshell QML tree shipped
+            by the omarchy package at /usr/share/omarchy/shell. There is no waybar, no
+            mako, no walker and no swayosd to install separately — those were the 3.x
+            stack. This candy installs Quickshell and supervises that tree directly.
+            Verifiable on the built image: the quickshell binary and the shell tree are
+            present; at deploy, the shell reaches a stable supervised RUNNING state
+            against the compositor's Wayland socket.
+        require:
+            # The shell tree itself ships in the omarchy package.
+            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.242.0437'
+            # LOAD-BEARING, not decoration. Measured: without a session bus Quickshell
+            # starts but logs "Could not connect to DBus" and disables its bluetooth and
+            # NetworkManager modules outright ("Network will not work. Could not find an
+            # available backend"). The bar renders, but two of its widgets are dead.
+            - '@github.com/opencharly/pod-dbus:v2026.239.1555'
+        # NO candy-level env: block, deliberately.
+        #
+        # A candy's env: becomes an IMAGE-WIDE ENV, and this candy's needs are not the
+        # image's. Setting XDG_RUNTIME_DIR=/tmp/cstream-rt here exported it to every
+        # process in the container and broke layer-supervisord's own check —
+        # "XDG_RUNTIME_DIR is exported and points at a /tmp-based per-user runtime dir" —
+        # which is a shared invariant this candy has no business changing. Measured: the
+        # built image reported XDG_RUNTIME_DIR=/tmp/cstream-rt at its default shell.
+        #
+        # The compositor's runtime dir is a property of ONE SERVICE, so it is set in that
+        # service's env: below and nowhere else.
+        distro:
+            arch:
+                package:
+                    - quickshell
+                    # QML runtime pieces the shell tree imports.
+                    - python-gobject
+                    - qt6-imageformats
+        service:
+            - name: omarchy-shell
+              # NOT `omarchy-launch-shell`. That wrapper runs
+              # `systemd-cat -t omarchy-shell -- quickshell`, and a pod has neither a
+              # systemd user manager nor a journald socket for systemd-cat to write to.
+              # Supervisord already provides the capture and restart semantics the
+              # wrapper hand-rolls, so the wrapper is replaced rather than worked around.
+              exec: "quickshell -n -p /usr/share/omarchy/shell"
+              env:
+                # /tmp/cstream-rt, NOT /tmp. pod-hyprland runs the compositor with
+                # XDG_RUNTIME_DIR=/tmp/cstream-rt, so Hyprland's own socket is
+                # /tmp/cstream-rt/wayland-0 and its instance dir is
+                # /tmp/cstream-rt/hypr/<sig>. Pointing this service at /tmp made it wait
+                # 60s for a socket that is never created there, time out, and be
+                # restarted forever — measured, and it looks like a Quickshell fault
+                # rather than an addressing one, which is why the path is spelled out.
+                XDG_RUNTIME_DIR: /tmp/cstream-rt
+                WAYLAND_DISPLAY: wayland-0
+                XDG_CURRENT_DESKTOP: Hyprland
+                # The shell tree watches its own files and offers a reload popup; both
+                # are interactive conveniences that only add churn under supervision.
+                QS_DISABLE_FILE_WATCHER: "1"
+                QS_NO_RELOAD_POPUP: "1"
+                OMARCHY_PATH: /usr/share/omarchy
+              restart: always
+              # 14 — after the compositor (12) has created wayland-0, before the
+              # streaming transport (18). Matches the swaync slot in the selkies stack.
+              priority: 14
+              start_sec: 5
+              enable: true
+              scope: system
+              wait_for:
+                # The compositor's CLIENT socket. Supervised, so a timeout fails this
+                # service with its own status rather than looking like a Quickshell crash.
+                paths:
+                    - "${XDG_RUNTIME_DIR}/wayland-0"
+                timeout: 60s
+        plan:
+            - check: the Quickshell runtime is installed
+              id: omarchy-quickshell-binary
+              context:
+                - build
+              file:
+                file: /usr/bin/quickshell
+                exists: true
+
+            - check: the Omarchy shell QML tree this service runs is present
+              id: omarchy-quickshell-tree
+              context:
+                - build
+              file:
+                file: /usr/share/omarchy/shell
+                exists: true
+
+            - agent-check: with the compositor up, the Quickshell shell reaches a stable supervised RUNNING state and draws its bar into the captured desktop
+
+            - check: service=omarchy-shell
+              id: omarchy-quickshell-service-running
+              context:
+                - runtime
+              service:
+                service: omarchy-shell
+                running: true
+
+            - check: command=supervisorctl status omarchy-shell shows a stable uptime
+              id: omarchy-quickshell-stable
+              # Stability, not liveness: a crash-looping shell reports RUNNING between
+              # restarts, so the assertion is on elapsed uptime.
+              exit_status: 0
+              eventually: 120s
+              retry_interval: 5s
+              context:
+                - runtime
+              command:
+                command: "supervisorctl status omarchy-shell | awk '/RUNNING/{n=split($NF,a,\":\"); s=a[n]+a[n-1]*60+a[n-2]*3600; if(s>=20){f=1}} END{exit !f}'"
+                in_container: true
