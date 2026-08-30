@@ -1,0 +1,12 @@
+#  opencharly/layer-omarchy-shell — Omarchy's Quickshell desktop shell.
+#
+#  In Omarchy 4.x the whole shell — bar, notifier, launcher, OSD, lockscreen — is ONE
+#  Quickshell QML tree shipped by the omarchy package. There is no waybar/mako/walker/
+#  swayosd to install; that was the 3.x stack and it is gone from the 4.x base set.
+#
+#  SHAPE: one repo, one external pin, members under candy/<name>/.
+version: 2026.240.1943
+repo: github.com/opencharly/layer-omarchy-shell
+discover:
+    - path: candy
+      recursive: true

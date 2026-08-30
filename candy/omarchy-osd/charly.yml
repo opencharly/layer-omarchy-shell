@@ -1,0 +1,63 @@
+omarchy-osd:
+    candy:
+        version: 2026.242.0000
+        description: |
+            The command-line tools Omarchy's shell indicators drive — volume, brightness, power profile and removable media.
+            Omarchy's Quickshell widgets do not talk to PipeWire, backlight sysfs or
+            power-profiles-daemon directly; they shell out to the small CLIs Omarchy's own
+            bin/omarchy-audio-*, omarchy-brightness-* and power commands wrap. Without
+            these the bar still renders, but its volume and brightness controls silently
+            do nothing when clicked. Verifiable on the built image: each tool is on PATH.
+        require:
+            # ORDERING, not just dependency. `aether` is Omarchy-published and exists only
+            # in [omarchy], which omarchy-repo configures. Without this require: the two
+            # candies are unordered, this candy's package step can be emitted BEFORE that
+            # repository exists, and the build dies with `error: target not found: aether`.
+            # Measured: a full GUI image build failed exactly that way.
+            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.242.0437'
+        distro:
+            arch:
+                package:
+                    # Volume: what omarchy-audio-output-volume and the bar's audio widget call.
+                    - pamixer
+                    # Brightness: omarchy-brightness-display's backend.
+                    - brightnessctl
+                    # Removable media: the shell's disk indicator mounts through this.
+                    - udiskie
+                    # Power profile: the bar's profile switcher reads and sets through
+                    # powerprofilesctl. The DAEMON is machine-only — a container has no
+                    # ACPI platform profile to switch — but the client is what the widget
+                    # invokes, and installing it here keeps the widget from erroring.
+                    - power-profiles-daemon
+                    # Omarchy's own wallpaper-colour theming app, driven from the shell's
+                    # theme menu.
+                    - aether
+        plan:
+            - check: the volume control the bar's audio widget drives is installed
+              id: omarchy-osd-pamixer
+              context:
+                - build
+              file:
+                file: /usr/bin/pamixer
+                exists: true
+
+            - check: the brightness control the bar's display widget drives is installed
+              id: omarchy-osd-brightnessctl
+              context:
+                - build
+              file:
+                file: /usr/bin/brightnessctl
+                exists: true
+
+            - check: every indicator backend the shell shells out to is on PATH
+              id: omarchy-osd-backends
+              context:
+                - build
+              # Asserted together: a missing one does not fail a build, it makes one bar
+              # widget silently inert, which is far harder to notice or trace.
+              exit_status: 0
+              command: |
+                  set -eu
+                  for b in pamixer brightnessctl udiskie powerprofilesctl; do
+                    command -v "$b" >/dev/null || { echo "missing indicator backend: $b" >&2; exit 1; }
+                  done

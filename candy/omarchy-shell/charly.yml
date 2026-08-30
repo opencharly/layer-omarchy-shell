@@ -1,0 +1,100 @@
+omarchy-shell:
+    candy:
+        version: 2026.242.0000
+        description: |
+            Omarchy's desktop shell — the Quickshell bar, notifier, launcher, OSD and lockscreen, plus the tools its indicators drive.
+            omarchy-shell is the meta a desktop box composes to get Omarchy's shell. It
+            installs nothing itself: composing it yields the supervised Quickshell service
+            running Omarchy's own QML tree (omarchy-quickshell), and the command-line
+            tools its volume, brightness, power and disk indicators shell out to
+            (omarchy-osd). In Omarchy 4.x the whole shell is ONE Quickshell tree — there
+            is no waybar, mako, walker or swayosd to install, which is what the 3.x stack
+            used and what an older reading of this project would expect.
+        candy:
+            # Bare sibling names; QualifyRemoteSiblingDeps resolves them at this repo's
+            # own tag, so one external pin on this meta pulls both members.
+            - omarchy-osd
+            - omarchy-quickshell
+        plan:
+            - check: composing the meta yields both the shell runtime and its indicator tools
+              id: omarchy-shell-composed
+              context:
+                - build
+              exit_status: 0
+              command: |
+                  set -eu
+                  test -x /usr/bin/quickshell
+                  test -d /usr/share/omarchy/shell
+                  command -v pamixer >/dev/null
+                  command -v brightnessctl >/dev/null
+
+omarchy-shell-skill:
+    skill:
+        name: omarchy-shell
+        family: distros
+        owner: omarchy-shell
+        description: |-
+            Omarchy's Quickshell desktop shell — the single QML tree that is its bar,
+            notifier, launcher, OSD and lockscreen — and how charly supervises it.
+            MUST be invoked when working with: the omarchy-shell meta or its members, the
+            Quickshell service, or why Omarchy has no waybar/mako/walker to configure.
+        content: |-
+            # Candy: omarchy-shell
+
+            Omarchy's entire desktop shell is **one Quickshell QML tree**, shipped by the
+            `omarchy` package at `/usr/share/omarchy/shell`.
+
+            This is the single most common wrong assumption about Omarchy 4.x. The 3.x
+            stack was waybar + mako + walker + swayosd + swaybg, and every one of those
+            is **gone** from the 4.x base package set. There is no bar config to write,
+            no notifier to install, and no launcher to wire up — there is one QML tree
+            and a process that runs it.
+
+            ## Composition
+
+            ```yaml
+            omarchy-shell:
+              candy:
+                candy: [omarchy-osd, omarchy-quickshell]
+            ```
+
+            | Member | Role |
+            |---|---|
+            | `omarchy-quickshell` | Quickshell itself plus the supervised `omarchy-shell` service |
+            | `omarchy-osd` | the tools the shell's indicators shell out to |
+
+            ## Why the service does not use `omarchy-launch-shell`
+
+            Upstream's launcher runs `systemd-cat -t omarchy-shell -- quickshell`. A pod
+            has neither a systemd user manager nor a journald socket for `systemd-cat` to
+            write to. Supervisord already provides the same capture and restart
+            semantics, so the service execs `quickshell` directly:
+
+            ```
+            exec: quickshell -n -p /usr/share/omarchy/shell
+            priority: 14
+            wait_for: {paths: ["${XDG_RUNTIME_DIR}/wayland-0"], timeout: 60s}
+            ```
+
+            Priority 14 places it after the compositor (12), which is what creates
+            `wayland-0`, and before the streaming transport (18).
+
+            ## `pod-dbus` is load-bearing
+
+            Measured: without a session bus Quickshell still starts and still draws, but
+            logs `Could not connect to DBus` and disables its bluetooth and
+            NetworkManager modules — `Network will not work. Could not find an available
+            backend`. Two bar widgets are then dead with no other symptom, so `pod-dbus`
+            is a `require:`, not a suggestion.
+
+            ## Verifying it in a bed
+
+            The bar is a **layer-shell surface**, not a toplevel, so it does **not**
+            appear in `hyprctl clients` and a `wl: hypr-clients` probe will not see it.
+            Assert it with a screenshot (`wl: screenshot` with `artifact_not_uniform`) or
+            via the supervised service's own stable-uptime check.
+
+            Two degradations are expected in a container and are not defects: polkit logs
+            `failed to create subject: No session for pid` (it wants a logind session),
+            and the shell reports `Layershell screen does not correspond to a real
+            screen` on a headless output.
