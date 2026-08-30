@@ -94,6 +94,24 @@ omarchy-quickshell:
 
             - check: service=omarchy-shell
               id: omarchy-quickshell-service-running
+              # A BOUNDED POLL, not a sleep. This service cannot start until the compositor
+              # it draws into has created its client socket, and the compositor in turn
+              # waits on ITS parent — pod-cstream's gst-wayland-display. On a cold build or
+              # a loaded host that chain routinely takes longer than the moment `charly
+              # check live` first fires, and the check then reports running=false for a
+              # service that is seconds from RUNNING.
+              #
+              # Measured: a run on a heavily loaded host failed here, and supervisorctl
+              # showed `omarchy-shell RUNNING pid 449, uptime 0:00:30` immediately after —
+              # it had come up, just not yet. The sibling stability check below already
+              # polls for exactly this reason.
+              #
+              # 90s bounds it: pod-hyprland's own wait_for on the parent socket times out
+              # at 30s and this service's wait_for adds another 30s, so a chain that has
+              # not completed in 90s is genuinely broken rather than slow, and the check
+              # still fails.
+              eventually: 90s
+              retry_interval: 5s
               context:
                 - runtime
               service:
