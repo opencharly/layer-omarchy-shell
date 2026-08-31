@@ -1,6 +1,6 @@
 omarchy-quickshell:
     candy:
-        version: 2026.242.0000
+        version: 2026.243.1855
         description: |
             Runs Omarchy's Quickshell desktop shell — its bar, notifier, launcher, OSD and lockscreen, as one supervised service.
             In Omarchy 4.x the entire desktop shell is a single Quickshell QML tree shipped
@@ -46,14 +46,26 @@ omarchy-quickshell:
               exec: "quickshell -n -p /usr/share/omarchy/shell"
               env:
                 # /tmp/cstream-rt, NOT /tmp. pod-hyprland runs the compositor with
-                # XDG_RUNTIME_DIR=/tmp/cstream-rt, so Hyprland's own socket is
-                # /tmp/cstream-rt/wayland-0 and its instance dir is
-                # /tmp/cstream-rt/hypr/<sig>. Pointing this service at /tmp made it wait
-                # 60s for a socket that is never created there, time out, and be
-                # restarted forever — measured, and it looks like a Quickshell fault
+                # XDG_RUNTIME_DIR=/tmp/cstream-rt, so Hyprland's sockets and its instance
+                # dir (/tmp/cstream-rt/hypr/<sig>) all live there. Pointing this service at
+                # /tmp made it wait 60s for a socket that is never created there, time out,
+                # and be restarted forever — measured, and it looks like a Quickshell fault
                 # rather than an addressing one, which is why the path is spelled out.
+                #
+                # wayland-2, NOT wayland-0, and the NUMBER is the whole point. There are two
+                # compositors in this stack and each owns a socket:
+                #
+                #     wayland-1   gst-wayland-display, the PARENT that streams
+                #     wayland-2   Hyprland itself, nested — the socket its clients use
+                #
+                # pod-hyprland states the first half itself ("The parent
+                # (gst-wayland-display) creates wayland-1") and sets its OWN
+                # WAYLAND_DISPLAY=wayland-1 to connect to it. Hyprland then binds the next
+                # name for its own clients. This service is a Hyprland CLIENT, so it needs
+                # Hyprland's socket, not the parent's and not wayland-0 — which no process
+                # in this stack ever creates.
                 XDG_RUNTIME_DIR: /tmp/cstream-rt
-                WAYLAND_DISPLAY: wayland-0
+                WAYLAND_DISPLAY: wayland-2
                 XDG_CURRENT_DESKTOP: Hyprland
                 # The shell tree watches its own files and offers a reload popup; both
                 # are interactive conveniences that only add churn under supervision.
@@ -61,7 +73,7 @@ omarchy-quickshell:
                 QS_NO_RELOAD_POPUP: "1"
                 OMARCHY_PATH: /usr/share/omarchy
               restart: always
-              # 14 — after the compositor (12) has created wayland-0, before the
+              # 14 — after the compositor (12) has created its client socket, before the
               # streaming transport (18). Matches the swaync slot in the selkies stack.
               priority: 14
               start_sec: 5
@@ -71,7 +83,7 @@ omarchy-quickshell:
                 # The compositor's CLIENT socket. Supervised, so a timeout fails this
                 # service with its own status rather than looking like a Quickshell crash.
                 paths:
-                    - "${XDG_RUNTIME_DIR}/wayland-0"
+                    - "${XDG_RUNTIME_DIR}/wayland-2"
                 timeout: 60s
         plan:
             - check: the Quickshell runtime is installed
