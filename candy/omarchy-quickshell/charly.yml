@@ -1,6 +1,5 @@
 omarchy-quickshell:
     candy:
-        version: 2026.243.1855
         description: |
             Runs Omarchy's Quickshell desktop shell — its bar, notifier, launcher, OSD and lockscreen, as one supervised service.
             In Omarchy 4.x the entire desktop shell is a single Quickshell QML tree shipped
