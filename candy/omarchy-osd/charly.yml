@@ -1,6 +1,5 @@
 omarchy-osd:
     candy:
-        version: 2026.242.0000
         description: |
             The command-line tools Omarchy's shell indicators drive — volume, brightness, power profile and removable media.
             Omarchy's Quickshell widgets do not talk to PipeWire, backlight sysfs or
