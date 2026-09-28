@@ -5,7 +5,6 @@
 #  swayosd to install; that was the 3.x stack and it is gone from the 4.x base set.
 #
 #  SHAPE: one repo, one external pin, members under candy/<name>/.
-version: 2026.240.1943
 repo: github.com/opencharly/layer-omarchy-shell
 discover:
     - path: candy

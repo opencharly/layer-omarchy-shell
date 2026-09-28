@@ -1,6 +1,5 @@
 omarchy-shell:
     candy:
-        version: 2026.243.1855
         description: |
             Omarchy's desktop shell — the Quickshell bar, notifier, launcher, OSD and lockscreen, plus the tools its indicators drive.
             omarchy-shell is the meta a desktop box composes to get Omarchy's shell. It
@@ -22,12 +21,11 @@ omarchy-shell:
                 - build
               exit_status: 0
               command: |
-                  set -eu
-                  test -x /usr/bin/quickshell
-                  test -d /usr/share/omarchy/shell
-                  command -v pamixer >/dev/null
-                  command -v brightnessctl >/dev/null
-
+                set -eu
+                test -x /usr/bin/quickshell
+                test -d /usr/share/omarchy/shell
+                command -v pamixer >/dev/null
+                command -v brightnessctl >/dev/null
 omarchy-shell-skill:
     skill:
         name: omarchy-shell
