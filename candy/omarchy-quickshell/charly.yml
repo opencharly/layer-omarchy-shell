@@ -16,7 +16,7 @@ omarchy-quickshell:
             # starts but logs "Could not connect to DBus" and disables its bluetooth and
             # NetworkManager modules outright ("Network will not work. Could not find an
             # available backend"). The bar renders, but two of its widgets are dead.
-            - '@github.com/opencharly/pod-dbus:v2026.272.0105'
+            - '@github.com/opencharly/pod-dbus:v2026.274.0648'
         # NO candy-level env: block, deliberately.
         #
         # A candy's env: becomes an IMAGE-WIDE ENV, and this candy's needs are not the
