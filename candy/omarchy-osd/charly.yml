@@ -13,7 +13,7 @@ omarchy-osd:
             # candies are unordered, this candy's package step can be emitted BEFORE that
             # repository exists, and the build dies with `error: target not found: aether`.
             # Measured: a full GUI image build failed exactly that way.
-            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.242.0437'
+            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.272.0437'
         distro:
             arch:
                 package:
