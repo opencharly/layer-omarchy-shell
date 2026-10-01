@@ -11,12 +11,12 @@ omarchy-quickshell:
             against the compositor's Wayland socket.
         require:
             # The shell tree itself ships in the omarchy package.
-            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.242.0437'
+            - '@github.com/opencharly/layer-omarchy-base/candy/omarchy-base:v2026.272.0437'
             # LOAD-BEARING, not decoration. Measured: without a session bus Quickshell
             # starts but logs "Could not connect to DBus" and disables its bluetooth and
             # NetworkManager modules outright ("Network will not work. Could not find an
             # available backend"). The bar renders, but two of its widgets are dead.
-            - '@github.com/opencharly/pod-dbus:v2026.239.1555'
+            - '@github.com/opencharly/pod-dbus:v2026.272.0105'
         # NO candy-level env: block, deliberately.
         #
         # A candy's env: becomes an IMAGE-WIDE ENV, and this candy's needs are not the
