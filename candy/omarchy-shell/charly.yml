@@ -32,8 +32,3 @@ omarchy-shell-skill:
         name: omarchy-shell
         family: distros
         owner: omarchy-shell
-        description: |-
-            Omarchy's Quickshell desktop shell — the single QML tree that is its bar,
-            notifier, launcher, OSD and lockscreen — and how charly supervises it.
-            MUST be invoked when working with: the omarchy-shell meta or its members, the
-            Quickshell service, or why Omarchy has no waybar/mako/walker to configure.
